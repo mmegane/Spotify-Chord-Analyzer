@@ -2,8 +2,11 @@ import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
+with open('secret.txt', 'r') as file:
+    secret = file.read()
+    
 CLIENT_ID =  "d80693fb76ed473b8a101b73aa936f9b"
-CLIENT_SECRET = "f58863f371804f398f94a70a7adf3fa5"
+CLIENT_SECRET = secret
 REDIRECT_URI = "http://spotifychords.se"
 
 SCOPE = "user-read-playback-state"
