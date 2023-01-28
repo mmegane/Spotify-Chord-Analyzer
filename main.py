@@ -85,18 +85,18 @@ while listening:
 
     pitches = matching_segment["pitches"]
 
-    str = ""
+    out = ""
 
     (mins, seconds) = format_time(current_progress)
 
-    str += "Progress: " + str(mins) + ":%02d" % seconds + "\n"
+    out += "Progress: " + str(mins) + ":%02d" % seconds + "\n"
 
     #print("Progress: " + str(mins) + ":%02d" % seconds, end = "\r")
     #print()
     for i in range(12):
-        str += pitch_map[i] + ": %f" % pitches[i] + "\n"
+        out += pitch_map[i] + ": %f" % pitches[i] + "\n"
 
-    print(str)
+    print(out)
 
 #def main():
 #    print("hej")
