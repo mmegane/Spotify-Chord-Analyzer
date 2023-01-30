@@ -1,6 +1,8 @@
 import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+import ruptures as rpt
+import numpy as np
 
 with open('secret.txt', 'r') as file:
     secret = file.read()
@@ -11,10 +13,21 @@ REDIRECT_URI = "http://spotifychords.se"
 
 SCOPE = "user-read-playback-state"
 
-TRACK_PARAMETERS = ['tempo', 'time_signature', 'key', 'mode']
+TRACK_PARAMETERS = ['num_samples', 'tempo', 'time_signature', 'key', 'mode']
 BARS_PARAMETERS = ['start', 'duration', 'confidence']
 SECTIONS_PARAMETERS = ['start', 'duration', 'loudness', 'tempo', 'key', 'mode', 'time_signature']
 SEGMENT_PARAMETERS = ['start', 'duration', 'pitches']
+
+# Return 2D array containing all pitch vectors in a track
+def extract_pitches(segments):
+
+    output_list = []
+
+    for segment in segments:
+        pitches_i = segment["pitches"]
+        output_list.append(pitches_i)
+
+    return(output_list)
 
 # Returns subset of keys from a list of dicts
 def return_dict_list_subset(dict_list, keys):
@@ -65,7 +78,40 @@ spotify = spotipy.Spotify(auth_manager = auth_manager)
 current_track_id = ""
 pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 8: "G#", 9: "A", 10: "A#", 11: "B"}
 
-listening = True
+currently_playing_track = refresh_currently_playing_track(spotify)
+current_track_id = currently_playing_track["id"]
+audio_analysis = refresh_audio_analysis(spotify, current_track_id)
+pitches = extract_pitches(audio_analysis["segments"])
+
+num_samples = audio_analysis["track"]["num_samples"]
+
+n = len(pitches)
+dim = 12
+
+model = "l1" # "l2", "rbf"
+min_size = 3
+jump = 1
+pen = 3
+
+signal = np.asarray(pitches)
+
+algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
+my_bkps = algo.predict(pen = pen)
+print(my_bkps)
+
+model = "l2"
+
+algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
+my_bkps = algo.predict(pen = pen)
+print(my_bkps)
+
+model = "rbf"
+
+algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
+my_bkps = algo.predict(pen = pen)
+print(my_bkps)
+
+listening = False
 
 while listening:
     
@@ -91,15 +137,7 @@ while listening:
 
     out += "Progress: " + str(mins) + ":%02d" % seconds + "\n"
 
-    #print("Progress: " + str(mins) + ":%02d" % seconds, end = "\r")
-    #print()
     for i in range(12):
         out += pitch_map[i] + ": %f" % pitches[i] + "\n"
 
     print(out)
-
-#def main():
-#    print("hej")
-
-#if __name__ == "__main__":
-#    main() 
