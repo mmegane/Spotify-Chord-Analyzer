@@ -4,6 +4,8 @@ from spotipy.oauth2 import SpotifyOAuth
 import ruptures as rpt
 import numpy as np
 
+np.set_printoptions(precision = 2, suppress = 0)
+
 with open('secret.txt', 'r') as file:
     secret = file.read()
     
@@ -92,14 +94,10 @@ def preprocess_pitches(pitches, breakpoints):
         a = breakpoints[i]
         b = breakpoints[i + 1]
 
-        pitches[a:b, :] = np.mean(pitches[a:b, :], 0)
+        pitches[a:b, :] = np.mean(pitches[a:b, :], axis = 0)
+
 
     return(pitches)
-
-def binarize_pitches(pitches, treshold):
-
-    threshold = 0.2
-
 
 # Connect to client
 auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
@@ -112,6 +110,7 @@ pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 
 chord_map = {"Maj": [([1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 0, 1], 1)],
              "Min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 1)]}
 
+
 True
 
 currently_playing_track = refresh_currently_playing_track(spotify)
@@ -122,7 +121,7 @@ pitches = extract_pitches(audio_analysis["segments"])
 model = "l1"
 min_size = 1
 jump = 1
-pen = 3
+pen = 2
 
 signal = np.asarray(pitches)
 chord_breakpoints = return_breakpoints(signal, model, min_size, jump, pen)
@@ -130,9 +129,11 @@ preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
 
 chords = np.unique(preprocessed_pitches, axis = 0)
 
-print(preprocessed_pitches.shape)
-print(chords.shape)
-print(chords)
+#print(preprocessed_pitches.shape)
+#print(signal.shape)
+print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
+print(preprocessed_pitches[0:10,:])
+print(signal[0:10,:])
 
 listening = False
 
