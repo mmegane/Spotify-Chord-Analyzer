@@ -71,45 +71,68 @@ def format_time(time):
 
     return((mins, seconds))
 
+def return_breakpoints(pitches, model, min_size, jump, pen):
+    #N = len(pitches)
+    #dim = 12
+
+    algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
+    my_bkps = algo.predict(pen = pen)
+
+    return(my_bkps)
+
+def preprocess_pitches(pitches, breakpoints):
+
+    breakpoints = np.insert(breakpoints, 0, 0)
+    breakpoints = np.append(breakpoints, len(pitches) - 1)
+
+    N = len(breakpoints)
+
+    for i in range(N - 2):
+
+        a = breakpoints[i]
+        b = breakpoints[i + 1]
+
+        pitches[a:b, :] = np.mean(pitches[a:b, :], 0)
+
+    return(pitches)
+
+def binarize_pitches(pitches, treshold):
+
+    threshold = 0.2
+
+
 # Connect to client
 auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
 spotify = spotipy.Spotify(auth_manager = auth_manager)
 
 current_track_id = ""
+
 pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 8: "G#", 9: "A", 10: "A#", 11: "B"}
+
+chord_map = {"Maj": [([1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 0, 1], 1)],
+             "Min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 1)]}
+
+True
 
 currently_playing_track = refresh_currently_playing_track(spotify)
 current_track_id = currently_playing_track["id"]
 audio_analysis = refresh_audio_analysis(spotify, current_track_id)
 pitches = extract_pitches(audio_analysis["segments"])
 
-num_samples = audio_analysis["track"]["num_samples"]
-
-n = len(pitches)
-dim = 12
-
-model = "l1" # "l2", "rbf"
-min_size = 3
+model = "l1"
+min_size = 1
 jump = 1
 pen = 3
 
 signal = np.asarray(pitches)
+chord_breakpoints = return_breakpoints(signal, model, min_size, jump, pen)
+preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
 
-algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
-my_bkps = algo.predict(pen = pen)
-print(my_bkps)
+chords = np.unique(preprocessed_pitches, axis = 0)
 
-model = "l2"
-
-algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
-my_bkps = algo.predict(pen = pen)
-print(my_bkps)
-
-model = "rbf"
-
-algo = rpt.Pelt(model = model, min_size = min_size, jump = jump).fit(signal)
-my_bkps = algo.predict(pen = pen)
-print(my_bkps)
+print(preprocessed_pitches.shape)
+print(chords.shape)
+print(chords)
 
 listening = False
 
