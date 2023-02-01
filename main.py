@@ -71,7 +71,9 @@ def format_time(time):
     mins =  int(mins)
     seconds = int(seconds)
 
-    return((mins, seconds))
+    time = str(mins) + ":%02d" % seconds
+
+    return(time)
 
 def return_breakpoints(pitches, model, min_size, jump, pen):
     #N = len(pitches)
@@ -85,19 +87,47 @@ def return_breakpoints(pitches, model, min_size, jump, pen):
 def preprocess_pitches(pitches, breakpoints):
 
     breakpoints = np.insert(breakpoints, 0, 0)
-    breakpoints = np.append(breakpoints, len(pitches) - 1)
+    breakpoints[-1] -= 1
 
     N = len(breakpoints)
 
-    for i in range(N - 2):
+    preprocessed_pitches = np.empty(pitches.shape)
+
+    for i in range(N - 1):
 
         a = breakpoints[i]
         b = breakpoints[i + 1]
 
-        pitches[a:b, :] = np.mean(pitches[a:b, :], axis = 0)
+        preprocessed_pitches[a:b, :] = np.mean(pitches[a:b, :], axis = 0)
 
 
-    return(pitches)
+    return(preprocessed_pitches)
+
+def get_breakpoint_times(breakpoints, segments):
+
+
+    N = len(breakpoints)
+
+    times = []
+
+    for i in breakpoints[:-1]:
+
+        time = format_time(segments[i]["start"])
+        times.append(time)
+
+    return(times)
+
+def get_interval_vectors(signals, threshold_fraction):
+
+    max_values = np.max(signals, axis = 1)
+
+    print(signals.shape)
+    print(max_values.shape)
+
+    output_array = signals > max_values.reshape(max_values.shape[0], 1)/threshold_fraction
+    output_array = output_array.astype(int)
+
+    return(output_array)
 
 # Connect to client
 auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
@@ -108,8 +138,12 @@ current_track_id = ""
 pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 8: "G#", 9: "A", 10: "A#", 11: "B"}
 
 chord_map = {"Maj": [([1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 0, 1], 1)],
-             "Min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 1)]}
-
+             "Min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 2], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 1)],
+             "Aug": [([1, 0, 0, 0, 1, 0, 0, 0, 1], 0)],
+             "Dim": [([1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0 ,0, 1] 2), ([1, 0, 0, 0, 0 ,0, 1, 0, 0, 1], 1)],
+             "Maj7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 1, 1], 3), ([1, 0, 0, 0, 1, 1, 0, 0, 0, 1], 2), ([1, 1, 0, 0, 0, 1, 0, 0, 1], 1)],
+             "Min7": [([1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 1, 0, 1], 3), ([1, 0, 0, 1, 0, 1, 0, 0, 1], 2), ([1, 0, 1, 0, 0, 1, 0, 0, 0, 1], 1)],
+             "7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 1, 0, 1], 3), ([1, 0, 0, 1, 0, 1, 0, 0, 0, 1], 2), ([1, 0, 1, 0, 0, 0, 1, 0, 0, 1], 1)]}
 
 True
 
@@ -119,21 +153,33 @@ audio_analysis = refresh_audio_analysis(spotify, current_track_id)
 pitches = extract_pitches(audio_analysis["segments"])
 
 model = "l1"
-min_size = 1
+min_size = 3
 jump = 1
-pen = 2
+pen = 5
+
+threshold_fraction = 3
 
 signal = np.asarray(pitches)
 chord_breakpoints = return_breakpoints(signal, model, min_size, jump, pen)
+breakpoint_times = get_breakpoint_times(chord_breakpoints, audio_analysis["segments"])
 preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
+interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction)
 
-chords = np.unique(preprocessed_pitches, axis = 0)
+#chords = np.unique(preprocessed_pitches, axis = 0)
 
 #print(preprocessed_pitches.shape)
 #print(signal.shape)
+print(chord_breakpoints)
+print()
+print(breakpoint_times)
+print()
 print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
-print(preprocessed_pitches[0:10,:])
-print(signal[0:10,:])
+print(signal[0:20,:])
+print()
+print(preprocessed_pitches[0:20,:])
+print()
+print(interval_vectors[50:90,:])
+
 
 listening = False
 
