@@ -120,30 +120,109 @@ def get_breakpoint_times(breakpoints, segments):
 def get_interval_vectors(signals, threshold_fraction):
 
     max_values = np.max(signals, axis = 1)
-
-    print(signals.shape)
-    print(max_values.shape)
-
-    output_array = signals > max_values.reshape(max_values.shape[0], 1)/threshold_fraction
+    output_array = signals > max_values.reshape(max_values.shape[0], 1) * threshold_fraction
     output_array = output_array.astype(int)
 
     return(output_array)
+
+# Return hamming distance between two equally sized binary vectors
+def return_hamming_distance(a, b):
+
+    N = len(a)
+
+    if N != len(b):
+        raise ValueError("Arguments must have equal length")
+
+    dist = 0
+    for i in range(N):
+
+        value_a = a[i]
+        value_b = b[i]
+
+        if value_a != value_b:
+            dist +=1
+    
+    return(dist)
+
+# Return all hamming distances between two differently sized binary vectors
+def return_hamming_distances(a, b):
+
+    N_a = len(a)
+    N_b = len(b)
+
+    if N_b > N_b:
+        raise ValueError("The second argument cannot be larger than the first")
+
+    dists = []
+
+    for i in range(N_a - N_b + 1):
+
+        left_pad = i
+        right_pad = (N_a - N_b) - i
+
+        c = [0] * left_pad + b + [0] * right_pad
+
+        dist = return_hamming_distance(a, c)
+        
+        dists.append(dist)
+    
+    return(dists)
+
+def map_vector_to_chord(vector, chord_map, pitch_map):
+
+    MAX_DIST = 12
+
+    current_best_dist = MAX_DIST
+    chord_quality = ""
+    shift = 0
+    pitch_vector = None
+
+    for chord in chord_map:
+
+        inversions = chord_map[chord]
+
+        for inversion in inversions:
+            dists = return_hamming_distances(vector, inversion[0])
+
+            N = len(dists)
+
+            for i in range(N):
+
+                if dists[i] <= current_best_dist:
+
+                    current_best_dist = dists[i]
+                    chord_quality = chord
+                    pitch_vector = inversion
+                    shift = i
+
+    output = chord_quality
+
+    if chord_quality != "No chord":
+        
+        root_note_index = pitch_vector[1]
+        pitch_index = shift + root_note_index
+        pitch = pitch_map[pitch_index]
+        output = pitch + chord_quality
+
+    return(output)
+
+
 
 # Connect to client
 auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
 spotify = spotipy.Spotify(auth_manager = auth_manager)
 
-current_track_id = ""
 
-pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 8: "G#", 9: "A", 10: "A#", 11: "B"}
+pitch_map = {0: "C", 1: "C#", 2: "D", 3: "D#", 4: "E", 5: "F", 6: "F#", 7: "G", 8: "G#", 9: "A", 10: "A#", 11: "B"}  
 
-chord_map = {"Maj": [([1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0, 1], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 0, 1], 1)],
-             "Min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 2], 2), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 1)],
+chord_map = {"Maj": [([1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0, 1], 8), ([1, 0, 0, 0, 0, 1, 0, 0, 0, 1], 5)],
+             "min": [([1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 0, 0, 2], 9), ([1, 0, 0, 0, 0, 1, 0, 0, 1], 5)],
              "Aug": [([1, 0, 0, 0, 1, 0, 0, 0, 1], 0)],
-             "Dim": [([1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0 ,0, 1] 2), ([1, 0, 0, 0, 0 ,0, 1, 0, 0, 1], 1)],
-             "Maj7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 1, 1], 3), ([1, 0, 0, 0, 1, 1, 0, 0, 0, 1], 2), ([1, 1, 0, 0, 0, 1, 0, 0, 1], 1)],
-             "Min7": [([1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 1, 0, 1], 3), ([1, 0, 0, 1, 0, 1, 0, 0, 1], 2), ([1, 0, 1, 0, 0, 1, 0, 0, 0, 1], 1)],
-             "7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 1, 0, 1], 3), ([1, 0, 0, 1, 0, 1, 0, 0, 0, 1], 2), ([1, 0, 1, 0, 0, 0, 1, 0, 0, 1], 1)]}
+             "Dim": [([1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 0 ,0, 1], 9), ([1, 0, 0, 0, 0 ,0, 1, 0, 0, 1], 6)],
+             "Maj7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 0, 1, 1], 8), ([1, 0, 0, 0, 1, 1, 0, 0, 0, 1], 5), ([1, 1, 0, 0, 0, 1, 0, 0, 1], 1)],
+             "min7": [([1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 0, 1, 0, 0, 1, 0, 1], 9), ([1, 0, 0, 1, 0, 1, 0, 0, 1], 5), ([1, 0, 1, 0, 0, 1, 0, 0, 0, 1], 2)],
+             "7": [([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1], 0), ([1, 0, 0, 1, 0, 0, 1, 0, 1], 8), ([1, 0, 0, 1, 0, 1, 0, 0, 0, 1], 5), ([1, 0, 1, 0, 0, 0, 1, 0, 0, 1], 2)],
+             "No chord": [([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], None), ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], None)]}
 
 True
 
@@ -155,31 +234,71 @@ pitches = extract_pitches(audio_analysis["segments"])
 model = "l1"
 min_size = 3
 jump = 1
-pen = 5
+pen = 1
 
-threshold_fraction = 3
+threshold_fraction = 0.33
 
 signal = np.asarray(pitches)
 chord_breakpoints = return_breakpoints(signal, model, min_size, jump, pen)
 breakpoint_times = get_breakpoint_times(chord_breakpoints, audio_analysis["segments"])
 preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
 interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction)
+interval_vectors_raw = get_interval_vectors(signal, threshold_fraction)
 
 #chords = np.unique(preprocessed_pitches, axis = 0)
 
 #print(preprocessed_pitches.shape)
 #print(signal.shape)
+
+a = 0
+b = 200
+
+"""
+
 print(chord_breakpoints)
 print()
 print(breakpoint_times)
 print()
+print("Raw signal:")
 print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
-print(signal[0:20,:])
+print(signal[a:b,:])
+print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
 print()
-print(preprocessed_pitches[0:20,:])
+print ("  C C#D D#E F F#G G#A A#B")
+print(interval_vectors_raw[a:b,:])
+print ("  C C#D D#E F F#G G#A A#B")
 print()
-print(interval_vectors[50:90,:])
+print("Preprocessed signal:")
+print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
+print(preprocessed_pitches[a:b,:])
+print("  C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:")
+print()
+print ("  C C#D D#E F F#G G#A A#B")
+print(interval_vectors[a:b,:])
+print ("  C C#D D#E F F#G G#A A#B")
 
+"""
+chords = []
+for vector in interval_vectors:
+    chord = map_vector_to_chord(vector, chord_map, pitch_map)
+    chords.append(chord)
+
+
+chord_progression = []
+
+N = len(chords)
+chords.insert(0, None)
+for i in range(1, N):
+    chord = chords[i]
+    prev_chord = chords[i - 1]
+
+    if chord != prev_chord:
+        chord_progression.append(chord)
+
+print(chord_progression)
+
+
+#print(*chords[a:b], sep = "\n")
 
 listening = False
 
