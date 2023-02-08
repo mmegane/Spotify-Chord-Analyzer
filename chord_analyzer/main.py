@@ -1,17 +1,17 @@
 import json
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyOAuth, SpotifyPKCE
 
 from utils import *
 from constants import *
 
 np.set_printoptions(precision = 2, suppress = 0)
 
-with open('secret.txt', 'r') as file:
-    secret = file.read()
+#with open('secret.txt', 'r') as file:
+#    secret = file.read()
     
 CLIENT_ID =  "d80693fb76ed473b8a101b73aa936f9b"
-CLIENT_SECRET = secret
+#CLIENT_SECRET = secret
 REDIRECT_URI = "http://spotifychords.se"
 SCOPE = "user-read-playback-state"
 
@@ -21,7 +21,8 @@ SECTIONS_PARAMETERS = ['start', 'duration', 'loudness', 'tempo', 'key', 'mode', 
 SEGMENT_PARAMETERS = ['start', 'duration', 'pitches']
 
 # Connect to client
-auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
+#auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
+auth_manager = SpotifyPKCE(CLIENT_ID, scope = SCOPE, redirect_uri = REDIRECT_URI)
 spotify = spotipy.Spotify(auth_manager = auth_manager)
 
 # Algorithm parameters
