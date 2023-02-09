@@ -1,17 +1,14 @@
-import json
+import sys
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth, SpotifyPKCE
+import argparse
+from spotipy.oauth2 import SpotifyPKCE
 
+import constants
 from utils import *
-from constants import *
 
 np.set_printoptions(precision = 2, suppress = 0)
-
-#with open('secret.txt', 'r') as file:
-#    secret = file.read()
     
 CLIENT_ID =  "d80693fb76ed473b8a101b73aa936f9b"
-#CLIENT_SECRET = secret
 REDIRECT_URI = "http://spotifychords.se"
 SCOPE = "user-read-playback-state"
 
@@ -20,69 +17,70 @@ BARS_PARAMETERS = ['start', 'duration', 'confidence']
 SECTIONS_PARAMETERS = ['start', 'duration', 'loudness', 'tempo', 'key', 'mode', 'time_signature']
 SEGMENT_PARAMETERS = ['start', 'duration', 'pitches']
 
-# Connect to client
-#auth_manager = SpotifyOAuth(CLIENT_ID, CLIENT_SECRET, scope = SCOPE, redirect_uri = REDIRECT_URI)
-auth_manager = SpotifyPKCE(CLIENT_ID, scope = SCOPE, redirect_uri = REDIRECT_URI)
-spotify = spotipy.Spotify(auth_manager = auth_manager)
+def main():
 
-# Algorithm parameters
-cost = rpt.costs.CostL1()
-#cost = rpt.costs.CostNormal()
-min_size = 3
-jump = 1
-pen = 3
-threshold_fraction = 0.40
+    # Parse (optional) arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--print", action = 'store_true', help = "Save the chord progression to file.")
+    args = parser.parse_args()
+    save_chords = args.print
 
-# Print delay in seconds
-delay = 1
-delay_counter = 0
-listening = True
+    # Connect to client
+    auth_manager = SpotifyPKCE(CLIENT_ID, scope = SCOPE, redirect_uri = REDIRECT_URI)
+    spotify = spotipy.Spotify(auth_manager = auth_manager)
 
-current_track_id = ""
+    # Algorithm parameters
+    cost = rpt.costs.CostL1()
+    min_size = 3
+    jump = 1
+    pen = 3
+    threshold_fraction = 0.40
 
-while listening:
-    
-    currently_playing_track = refresh_currently_playing_track(spotify)
+    save_path = "./progression.txt"
 
-    if currently_playing_track is None:
-        continue
+    current_track_id = ""
 
-    if (currently_playing_track["id"] != current_track_id):
+    listening = True
 
-        current_track_id = currently_playing_track["id"]
-        audio_analysis = refresh_audio_analysis(spotify, current_track_id, TRACK_PARAMETERS, 
-                                                                           BARS_PARAMETERS,
-                                                                           SECTIONS_PARAMETERS,
-                                                                           SEGMENT_PARAMETERS)
+    while listening:
+        
+        currently_playing_track = refresh_currently_playing_track(spotify)
 
-        segments = audio_analysis["segments"]
+        if currently_playing_track is None:
+            continue
 
-        pitches = extract_pitches(segments)
-        signal = np.asarray(pitches)
+        if (currently_playing_track["id"] != current_track_id):
 
-        chord_breakpoints = return_breakpoints(signal, cost, min_size, jump, pen)
-        breakpoint_times = get_breakpoint_times(chord_breakpoints, segments)
+            current_track_id = currently_playing_track["id"]
+            audio_analysis = refresh_audio_analysis(spotify, current_track_id, TRACK_PARAMETERS, 
+                                                                               BARS_PARAMETERS,
+                                                                               SECTIONS_PARAMETERS,
+                                                                               SEGMENT_PARAMETERS)
 
-        preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
-        interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction)
-        interval_vectors_raw = get_interval_vectors(signal, threshold_fraction)
+            segments = audio_analysis["segments"]
 
-        print("Chord timepoints: \n")
-        print(breakpoint_times)
-        print("\n")
+            pitches = extract_pitches(segments)
+            signal = np.asarray(pitches)
 
-    current_progress = currently_playing_track["progress"]/1000
-    current_time = format_time(current_progress)
+            chord_breakpoints = return_breakpoints(signal, cost, min_size, jump, pen)
+            breakpoint_times = get_breakpoint_times(chord_breakpoints, segments)
 
-    # Query data on segment that matches current position in track
-    matching_index = return_matching_index(segments, current_progress)
+            preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
+            interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction)
+            interval_vectors_raw = get_interval_vectors(signal, threshold_fraction)
 
-    interval_vector = interval_vectors[matching_index]
-    current_chord = map_vector_to_chord(interval_vector, chord_map, pitch_map)
+            if save_chords:
+                song_name = currently_playing_track["name"]
+                save_chords_to_file(save_path, song_name, breakpoint_times, interval_vectors, constants.chord_map, constants.pitch_map)
 
-    delay_counter %= delay
+        current_progress = currently_playing_track["progress"]/1000
+        current_time = format_time(current_progress)
 
-    if delay_counter == 0:
+        # Query data on segment that matches current position in track
+        matching_index = return_matching_index(segments, current_progress)
+
+        interval_vector = interval_vectors[matching_index]
+        current_chord = map_vector_to_chord(interval_vector, constants.chord_map, constants.pitch_map)
 
         out = "Progress: " + current_time + "\n" + "\n" 
 
@@ -103,25 +101,5 @@ while listening:
 
         print(out, end = "\r")
 
-    delay_counter += 1
-
-'''
-chords = []
-for vector in interval_vectors:
-    chord = map_vector_to_chord(vector, chord_map, pitch_map)
-    chords.append(chord)
-
-
-chord_progression = []
-
-N = len(chords)
-chords.insert(0, None)
-for i in range(1, N):
-    chord = chords[i]
-    prev_chord = chords[i - 1]
-
-    if chord != prev_chord:
-        chord_progression.append(chord)
-
-print(chord_progression)
-'''
+if __name__ == "__main__":
+    main()

@@ -3,7 +3,7 @@ import numpy as np
 
 # Returns 2D array containing all pitch vectors in a track
 def extract_pitches(segments):
-
+    
     output_list = []
 
     for segment in segments:
@@ -14,6 +14,7 @@ def extract_pitches(segments):
 
 # Returns subset of keys from a list of dicts
 def return_dict_list_subset(dict_list, keys):
+
     output_list = []
 
     for dictionary in dict_list:
@@ -22,6 +23,7 @@ def return_dict_list_subset(dict_list, keys):
     return(output_list)
 
 def refresh_currently_playing_track(client):
+
     currently_playing_track = client.current_user_playing_track()
 
     if currently_playing_track is not None:
@@ -85,7 +87,6 @@ def preprocess_pitches(pitches, breakpoints):
         b = breakpoints[i + 1]
 
         preprocessed_pitches[a:b, :] = np.mean(pitches[a:b, :], axis = 0)
-
 
     return(preprocessed_pitches)
 
@@ -191,3 +192,45 @@ def map_vector_to_chord(vector, chord_map, pitch_map):
         output = pitch + chord_quality
 
     return(output)
+
+# Returns the sequence of chords derived from a 2D matrix of interval vectors
+def get_chord_progression(interval_vectors, chord_map, pitch_map):
+
+    chords = []
+    for vector in interval_vectors:
+        chord = map_vector_to_chord(vector, chord_map, pitch_map)
+        chords.append(chord)
+
+    chord_progression = []
+    N = len(chords)
+    chords.insert(0, None)
+
+    for i in range(1, N):
+        chord = chords[i]
+        prev_chord = chords[i - 1]
+
+        if chord != prev_chord:
+            chord_progression.append(chord)
+
+    return(chord_progression)
+
+def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, chord_map, pitch_map):
+    
+    print("Writing chord progression to \"" + path + "\" \n")
+
+    f = open(path, "w")
+    f.truncate(0)
+    
+    f.write("Song name: " + song_name + "\n\n")
+
+    f.write("Chord breakpoints: \n")
+    for breakpoint in breakpoint_times:
+        f.write(breakpoint + " ")
+    f.write("\n\n")
+
+    chord_progression = get_chord_progression(interval_vectors, chord_map, pitch_map)
+
+    f.write("Chord progression: \n")
+    for chord in chord_progression:
+        f.write(chord + " ")
+    f.close()
