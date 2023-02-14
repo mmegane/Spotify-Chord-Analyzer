@@ -10,4 +10,6 @@ Install the packages in the requirements file (preferably by setting up an Anaco
 
 Install the packages in the requirements file. Download the repository, run main.py and follow the instructions.
 
-To save the full chord progression of the song to "./progressions.txt", specify the optional argument "--print", or "-p".
+To save the full chord progression of the song to "./progressions.txt", specify the optional argument "--save_chords", or "-sc".
+
+To save the entire sequence of notes in the song to "./notes.txt", specify the optional argument "--save_notes", or "-sn".

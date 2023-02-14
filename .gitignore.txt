@@ -1,2 +1,2 @@
-/chord_analyzer/secret.txt
-/chord_analyzer/progression.txt
+./chord_analyzer/progression.txt
+./chord_analyzer/notes.txt

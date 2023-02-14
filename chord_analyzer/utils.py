@@ -26,10 +26,18 @@ def refresh_currently_playing_track(client):
 
     currently_playing_track = client.current_user_playing_track()
 
-    if currently_playing_track is not None:
+    if currently_playing_track is None:
+        print("Play a song...", end = "\r")
+        return(None)
+
+    if currently_playing_track['item'] is None:
+        return(None)
+    
+    else:
         currently_playing_track = {'id': currently_playing_track['item']['id'],
                                    'name': currently_playing_track['item']['name'],
                                    'progress': currently_playing_track['progress_ms']}
+
     return(currently_playing_track)
     
 def refresh_audio_analysis(client, id, track_parameters,
@@ -72,6 +80,7 @@ def return_breakpoints(signal, custom_cost, min_size, jump, pen):
 
     return(my_bkps)
 
+# Takes a 2D array of pitches and returns a piecewise constant averaged signal
 def preprocess_pitches(pitches, breakpoints):
 
     breakpoints = np.insert(breakpoints, 0, 0)
@@ -154,7 +163,6 @@ def return_hamming_distances(a, b):
     
     return(dists)
 
-# Maps pitch vector to chord
 def map_vector_to_chord(vector, chord_map, pitch_map):
 
     MAX_DIST = 12
@@ -214,6 +222,22 @@ def get_chord_progression(interval_vectors, chord_map, pitch_map):
 
     return(chord_progression)
 
+def compile_notes(interval_vectors, pitch_map):
+
+    samples = []
+
+    for pitches in interval_vectors:
+        pitch_indeces = [i for i in range(len(pitches)) if pitches[i] == 1]
+        
+        notes = []
+        for i in pitch_indeces:
+            note = pitch_map[i]
+            notes.append(note)
+        
+        samples.append(notes)
+    
+    return(samples)
+
 def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, chord_map, pitch_map):
     
     print("Writing chord progression to \"" + path + "\" \n")
@@ -233,4 +257,20 @@ def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, cho
     f.write("Chord progression: \n")
     for chord in chord_progression:
         f.write(chord + " ")
+    f.close()
+
+def save_notes_to_file(path, song_name, interval_vectors, pitch_map):
+    
+    notes = compile_notes(interval_vectors, pitch_map)
+    
+    print("Writing notes to \"" + path + "\" \n")
+
+    f = open(path, "w")
+    f.truncate(0)
+    
+    f.write("Song name: " + song_name + "\n\n")
+
+    f.write("Notes: \n")
+    for sample in notes:
+        f.write(str(sample) + "\n")
     f.close()

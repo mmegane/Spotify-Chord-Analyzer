@@ -1,4 +1,3 @@
-import sys
 import spotipy
 import argparse
 from spotipy.oauth2 import SpotifyPKCE
@@ -21,9 +20,11 @@ def main():
 
     # Parse (optional) arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--print", action = 'store_true', help = "Save the chord progression to file.")
+    parser.add_argument("-sc", "--save_chords", action = 'store_true', help = "Save the chord progression to file.")
+    parser.add_argument("-sn", "--save_notes", action = 'store_true', help = "Save the sequence of notes to file.")
     args = parser.parse_args()
-    save_chords = args.print
+    save_chords = args.save_chords
+    save_notes = args.save_notes
 
     # Connect to client
     auth_manager = SpotifyPKCE(CLIENT_ID, scope = SCOPE, redirect_uri = REDIRECT_URI)
@@ -34,9 +35,10 @@ def main():
     min_size = 3
     jump = 1
     pen = 3
-    threshold_fraction = 0.40
+    threshold_fraction = 0.35
 
-    save_path = "./progression.txt"
+    chords_path = "./progression.txt"
+    notes_path = "./notes.txt"
 
     current_track_id = ""
 
@@ -71,8 +73,12 @@ def main():
 
             if save_chords:
                 song_name = currently_playing_track["name"]
-                save_chords_to_file(save_path, song_name, breakpoint_times, interval_vectors, constants.chord_map, constants.pitch_map)
-
+                save_chords_to_file(chords_path, song_name, breakpoint_times, interval_vectors, constants.chord_map,
+                                                                                                constants.pitch_map)
+            if save_notes:
+                song_name = currently_playing_track["name"]
+                save_notes_to_file(notes_path, song_name, interval_vectors_raw, constants.pitch_map)
+        
         current_progress = currently_playing_track["progress"]/1000
         current_time = format_time(current_progress)
 
@@ -80,7 +86,8 @@ def main():
         matching_index = return_matching_index(segments, current_progress)
 
         interval_vector = interval_vectors[matching_index]
-        current_chord = map_vector_to_chord(interval_vector, constants.chord_map, constants.pitch_map)
+        current_chord = map_vector_to_chord(interval_vector, constants.chord_map,
+                                                             constants.pitch_map)
 
         out = "Progress: " + current_time + "\n" + "\n" 
 
@@ -88,7 +95,7 @@ def main():
         out += " C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:" + "\n"
         out += str(signal[matching_index]) + "\n"
         out += " C C#D D#E F F#G G#A A#B" + "\n"
-        out += str(interval_vectors_raw[matching_index]) + "\n" + "\n"
+        out += str(interval_vectors_raw[matching_index]) + "\n" +"\n"
 
         out += "Preprocessed pitches:" + "\n"
         out += " C:   C#:  D:   D#   E:   F:   F#:  G:   G#:  A:   A#:  B:" + "\n"
