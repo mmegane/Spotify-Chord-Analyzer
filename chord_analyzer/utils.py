@@ -58,7 +58,7 @@ def return_matching_index(segments, progress):
     N = len(segments)
     
     matching_index = next(index for index in range(N) if
-                          ((segments[index]["start"] < progress) and (progress <= segments[index]["start"] + segments[index]["duration"])))
+                          ((segments[index]["start"] <= progress) and (progress <= segments[index]["start"] + segments[index]["duration"])))
 
     return(matching_index)
 
@@ -74,6 +74,9 @@ def format_time(time):
 
 # Return time series segmentation
 def return_breakpoints(signal, custom_cost, min_size, jump, pen):
+
+    threshold = 0.25
+    thresh_signal = get_interval_vectors(signal, threshold)
 
     algo = rpt.Pelt(min_size = min_size, jump = jump, custom_cost = custom_cost).fit(signal)
     my_bkps = algo.predict(pen = pen)
@@ -114,8 +117,9 @@ def get_breakpoint_times(breakpoints, segments):
 
 def get_interval_vectors(signals, threshold_fraction):
 
-    max_values = np.max(signals, axis = 1)
-    output_array = signals > max_values.reshape(max_values.shape[0], 1) * threshold_fraction
+    #max_values = np.max(signals, axis = 1)
+    #output_array = signals > max_values.reshape(max_values.shape[0], 1) * threshold_fraction
+    output_array = signals > threshold_fraction
     output_array = output_array.astype(int)
 
     return(output_array)
@@ -257,6 +261,12 @@ def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, cho
     f.write("Chord progression: \n")
     for chord in chord_progression:
         f.write(chord + " ")
+    f.write("\n\n")
+
+    unique_chords = np.unique(chord_progression)
+
+    f.write("Unique chords: \n")
+    f.write(str(unique_chords))
     f.close()
 
 def save_notes_to_file(path, song_name, interval_vectors, pitch_map):

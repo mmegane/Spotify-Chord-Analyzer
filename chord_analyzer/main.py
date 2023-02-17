@@ -32,10 +32,11 @@ def main():
 
     # Algorithm parameters
     cost = rpt.costs.CostL1()
-    min_size = 3
+    min_size = 1
     jump = 1
     pen = 3
-    threshold_fraction = 0.35
+
+    threshold_fraction = 0.15
 
     chords_path = "./progression.txt"
     notes_path = "./notes.txt"
@@ -64,11 +65,11 @@ def main():
             pitches = extract_pitches(segments)
             signal = np.asarray(pitches)
 
-            chord_breakpoints = return_breakpoints(signal, cost, min_size, jump, pen)
+            chord_breakpoints = return_breakpoints(get_interval_vectors(signal, threshold_fraction), cost, min_size, jump, pen)
             breakpoint_times = get_breakpoint_times(chord_breakpoints, segments)
 
             preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
-            interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction)
+            interval_vectors = get_interval_vectors(preprocessed_pitches, 0.2)
             interval_vectors_raw = get_interval_vectors(signal, threshold_fraction)
 
             if save_chords:
