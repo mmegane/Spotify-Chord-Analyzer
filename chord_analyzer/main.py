@@ -16,6 +16,8 @@ BARS_PARAMETERS = ['start', 'duration', 'confidence']
 SECTIONS_PARAMETERS = ['start', 'duration', 'loudness', 'tempo', 'key', 'mode', 'time_signature']
 SEGMENT_PARAMETERS = ['start', 'duration', 'pitches']
 
+DICT_PARAMETERS = [TRACK_PARAMETERS, BARS_PARAMETERS, SECTIONS_PARAMETERS, SEGMENT_PARAMETERS]
+
 def main():
 
     # Parse (optional) arguments
@@ -32,11 +34,15 @@ def main():
 
     # Algorithm parameters
     cost = rpt.costs.CostL1()
-    min_size = 1
+    min_size = 2
     jump = 1
     pen = 3
 
-    threshold_fraction = 0.15
+    threshold_fraction_a = 0.15
+    threshold_fraction_b = 0.25
+
+    #distance_function = return_cosine_distance
+    distance_function = return_hamming_distance
 
     chords_path = "./progression.txt"
     notes_path = "./notes.txt"
@@ -55,27 +61,24 @@ def main():
         if (currently_playing_track["id"] != current_track_id):
 
             current_track_id = currently_playing_track["id"]
-            audio_analysis = refresh_audio_analysis(spotify, current_track_id, TRACK_PARAMETERS, 
-                                                                               BARS_PARAMETERS,
-                                                                               SECTIONS_PARAMETERS,
-                                                                               SEGMENT_PARAMETERS)
+            audio_analysis = refresh_audio_analysis(spotify, current_track_id, DICT_PARAMETERS)
 
             segments = audio_analysis["segments"]
 
             pitches = extract_pitches(segments)
             signal = np.asarray(pitches)
 
-            chord_breakpoints = return_breakpoints(get_interval_vectors(signal, threshold_fraction), cost, min_size, jump, pen)
+            interval_vectors_raw = get_interval_vectors(signal, threshold_fraction_a)
+            chord_breakpoints = return_breakpoints(interval_vectors_raw, cost, min_size, jump, pen)
             breakpoint_times = get_breakpoint_times(chord_breakpoints, segments)
 
             preprocessed_pitches = preprocess_pitches(signal, chord_breakpoints)
-            interval_vectors = get_interval_vectors(preprocessed_pitches, 0.2)
-            interval_vectors_raw = get_interval_vectors(signal, threshold_fraction)
-
+            interval_vectors = get_interval_vectors(preprocessed_pitches, threshold_fraction_b)
+            
             if save_chords:
                 song_name = currently_playing_track["name"]
-                save_chords_to_file(chords_path, song_name, breakpoint_times, interval_vectors, constants.chord_map,
-                                                                                                constants.pitch_map)
+                save_chords_to_file(chords_path, song_name, distance_function, breakpoint_times, interval_vectors, constants.chord_map,
+                                                                                                                   constants.pitch_map)
             if save_notes:
                 song_name = currently_playing_track["name"]
                 save_notes_to_file(notes_path, song_name, interval_vectors_raw, constants.pitch_map)
@@ -85,10 +88,9 @@ def main():
 
         # Query data on segment that matches current position in track
         matching_index = return_matching_index(segments, current_progress)
-
         interval_vector = interval_vectors[matching_index]
-        current_chord = map_vector_to_chord(interval_vector, constants.chord_map,
-                                                             constants.pitch_map)
+        current_chord = map_vector_to_chord(interval_vector, distance_function, constants.chord_map,
+                                                                                constants.pitch_map)
 
         out = "Progress: " + current_time + "\n" + "\n" 
 

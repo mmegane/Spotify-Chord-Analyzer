@@ -40,16 +40,13 @@ def refresh_currently_playing_track(client):
 
     return(currently_playing_track)
     
-def refresh_audio_analysis(client, id, track_parameters,
-                                       bars_parameters,
-                                       section_parameters,
-                                       segment_parameters):
+def refresh_audio_analysis(client, id, dict_parameters):
 
         audio_analysis = client.audio_analysis(track_id = id)
-        audio_analysis = {'track': dict((k, audio_analysis['track'][k]) for k in track_parameters),
-                          'bars': return_dict_list_subset(audio_analysis['bars'], bars_parameters),
-                          'sections': return_dict_list_subset(audio_analysis['sections'], section_parameters),
-                          'segments': return_dict_list_subset(audio_analysis['segments'], segment_parameters)}
+        audio_analysis = {'track': dict((k, audio_analysis['track'][k]) for k in dict_parameters[0]),
+                          'bars': return_dict_list_subset(audio_analysis['bars'], dict_parameters[1]),
+                          'sections': return_dict_list_subset(audio_analysis['sections'], dict_parameters[2]),
+                          'segments': return_dict_list_subset(audio_analysis['segments'], dict_parameters[3])}
 
         return(audio_analysis)
 
@@ -74,9 +71,6 @@ def format_time(time):
 
 # Return time series segmentation
 def return_breakpoints(signal, custom_cost, min_size, jump, pen):
-
-    threshold = 0.25
-    thresh_signal = get_interval_vectors(signal, threshold)
 
     algo = rpt.Pelt(min_size = min_size, jump = jump, custom_cost = custom_cost).fit(signal)
     my_bkps = algo.predict(pen = pen)
@@ -115,11 +109,14 @@ def get_breakpoint_times(breakpoints, segments):
 
     return(times)
 
-def get_interval_vectors(signals, threshold_fraction):
+def get_interval_vectors(signals, threshold_fraction, relative_tresh = False):
 
-    #max_values = np.max(signals, axis = 1)
-    #output_array = signals > max_values.reshape(max_values.shape[0], 1) * threshold_fraction
-    output_array = signals > threshold_fraction
+    if relative_tresh:
+        max_values = np.max(signals, axis = 1)
+        output_array = signals > max_values.reshape(max_values.shape[0], 1) * threshold_fraction
+    else:
+        output_array = signals > threshold_fraction
+    
     output_array = output_array.astype(int)
 
     return(output_array)
@@ -143,8 +140,24 @@ def return_hamming_distance(a, b):
     
     return(dist)
 
-# Return all hamming distances between two differently sized binary vectors
-def return_hamming_distances(a, b):
+def return_cosine_distance(a, b):
+
+    epsilon = 0.00001
+
+    N = len(a)
+
+    if N != len(b):
+        raise ValueError("Arguments must have equal length")
+
+    len_a = np.linalg.norm(a)
+    len_b = np.linalg.norm(b)
+
+    distance = 1 - np.dot(a, b)/(len_a * len_b + epsilon)
+
+    return(distance)
+
+# Return all distances between two differently sized binary vectors, under the distance function f
+def return_distances(a, b, f):
 
     N_a = len(a)
     N_b = len(b)
@@ -161,15 +174,15 @@ def return_hamming_distances(a, b):
 
         c = [0] * left_pad + b + [0] * right_pad
 
-        dist = return_hamming_distance(a, c)
+        dist = f(a, c)
         
         dists.append(dist)
     
     return(dists)
 
-def map_vector_to_chord(vector, chord_map, pitch_map):
+def map_vector_to_chord(vector, f, chord_map, pitch_map):
 
-    MAX_DIST = 12
+    MAX_DIST = f([0]*12, [1]*12)
 
     current_best_dist = MAX_DIST
     chord_quality = ""
@@ -181,7 +194,7 @@ def map_vector_to_chord(vector, chord_map, pitch_map):
         inversions = chord_map[chord]
 
         for inversion in inversions:
-            dists = return_hamming_distances(vector, inversion[0])
+            dists = return_distances(vector, inversion[0], f)
 
             N = len(dists)
 
@@ -206,11 +219,11 @@ def map_vector_to_chord(vector, chord_map, pitch_map):
     return(output)
 
 # Returns the sequence of chords derived from a 2D matrix of interval vectors
-def get_chord_progression(interval_vectors, chord_map, pitch_map):
+def get_chord_progression(interval_vectors, f, chord_map, pitch_map):
 
     chords = []
     for vector in interval_vectors:
-        chord = map_vector_to_chord(vector, chord_map, pitch_map)
+        chord = map_vector_to_chord(vector, f, chord_map, pitch_map)
         chords.append(chord)
 
     chord_progression = []
@@ -242,11 +255,11 @@ def compile_notes(interval_vectors, pitch_map):
     
     return(samples)
 
-def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, chord_map, pitch_map):
+def save_chords_to_file(path, song_name, distance_function, breakpoint_times, interval_vectors, chord_map, pitch_map):
     
     print("Writing chord progression to \"" + path + "\" \n")
 
-    f = open(path, "w")
+    f = open(path, "w", encoding = "utf-8")
     f.truncate(0)
     
     f.write("Song name: " + song_name + "\n\n")
@@ -256,7 +269,7 @@ def save_chords_to_file(path, song_name, breakpoint_times, interval_vectors, cho
         f.write(breakpoint + " ")
     f.write("\n\n")
 
-    chord_progression = get_chord_progression(interval_vectors, chord_map, pitch_map)
+    chord_progression = get_chord_progression(interval_vectors, distance_function, chord_map, pitch_map)
 
     f.write("Chord progression: \n")
     for chord in chord_progression:
@@ -275,7 +288,7 @@ def save_notes_to_file(path, song_name, interval_vectors, pitch_map):
     
     print("Writing notes to \"" + path + "\" \n")
 
-    f = open(path, "w")
+    f = open(path, "w", encoding = "utf-8")
     f.truncate(0)
     
     f.write("Song name: " + song_name + "\n\n")
